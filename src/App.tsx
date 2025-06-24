@@ -1,13 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import GetStartedPage from './pages/GetStartedPage';
+import SetUsernamePage from './pages/SetUsernamePage'; // Import your SetUsernamePage component
 
 const App: React.FC = () => {
   return (
-    <Router>
+     <Router>
       <Routes>
         <Route path="/" element={<GetStartedPage />} />
-        <Route path="/set-username" element={<div>Set Username Page (Coming Soon)</div>} />
+        <Route path="/set-username" element={<SetUsernamePage />} />
       </Routes>
     </Router>
   );
