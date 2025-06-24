@@ -1,22 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { getUsername } from '../utils/helper';
+import SetUsernameModal from '../components/SetUsernameModal';
 
 const CreateRoomPage: React.FC = () => {
   const navigate = useNavigate();
   const [roomName, setRoomName] = useState('');
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    const username = getUsername();
+    if (!username) {
+      setShowModal(true);
+    }
+  }, []);
 
   const handleCreateRoom = () => {
-    if(roomName.trim() === '') {
+    const username = getUsername();
+    if (!username) {
+      setShowModal(true);
+      return;
+    }
+
+    if (roomName.trim() === '') {
       alert('Please enter a room name');
       return;
     }
 
-    // For now, just navigate to chat room with the room name (you can change logic later)
+    // Navigate to room with room name
     navigate(`/room/${roomName}`);
   };
 
   return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-center text-center px-4">
+      {/* Set Username Modal */}
+      {showModal && <SetUsernameModal onClose={() => setShowModal(false)} />}
+
       {/* Heading */}
       <h1 className="text-white text-3xl md:text-4xl font-bold mb-6">Create a Room</h1>
 

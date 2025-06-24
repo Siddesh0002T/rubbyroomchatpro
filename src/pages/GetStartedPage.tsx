@@ -28,7 +28,7 @@ const GetStartedPage: React.FC = () => {
 
       {/* Get Started Button */}
       <button
-        onClick={() => navigate('/set-username')}
+        onClick={() => navigate('/create-room')}
         className="bg-[#e81cff] text-white font-medium text-lg md:text-xl py-3 px-10 rounded-full shadow-lg hover:scale-105 transition-transform duration-300"
       >
         Get Started
