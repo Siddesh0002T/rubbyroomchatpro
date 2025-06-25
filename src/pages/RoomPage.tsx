@@ -21,7 +21,10 @@ const RoomPage: React.FC = () => {
   const [showModal, setShowModal] = useState(false);
   const [username, setUsernameState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const hasSentJoinRef = useRef(false);
+  const hasScrolledRef = useRef(false);
 
+  // 1️⃣ Username check
   useEffect(() => {
     const storedUsername = getUsername();
     if (!storedUsername) {
@@ -31,6 +34,7 @@ const RoomPage: React.FC = () => {
     }
   }, []);
 
+  // 2️⃣ Fetch and subscribe to messages
   useEffect(() => {
     if (!roomId) return;
 
@@ -43,6 +47,14 @@ const RoomPage: React.FC = () => {
           sort: '+created',
         });
         setMessages(msgs);
+
+        // Scroll to bottom initially
+        setTimeout(() => {
+          if (scrollRef.current && !hasScrolledRef.current) {
+            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+            hasScrolledRef.current = true;
+          }
+        }, 100);
       } catch (err) {
         console.error('Error fetching messages:', err);
       }
@@ -61,8 +73,15 @@ const RoomPage: React.FC = () => {
             message: e.record.message,
             created: e.record.created,
           };
-
           setMessages((prev) => [...prev, newMsg]);
+
+          // Scroll to bottom if near bottom
+          const el = scrollRef.current;
+          if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
+            setTimeout(() => {
+              el.scrollTop = el.scrollHeight;
+            }, 100);
+          }
         }
       });
     };
@@ -76,12 +95,44 @@ const RoomPage: React.FC = () => {
     };
   }, [roomId]);
 
-  // Auto-scroll to bottom
+  // 3️⃣ Rubby welcome once per session
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    const sendRubbyJoin = async () => {
+      if (!roomId || !username || hasSentJoinRef.current) return;
+      hasSentJoinRef.current = true;
+
+      await pb.collection('messages').create({
+        roomId,
+        username: 'Rubby',
+        message: `👋 @${username} just joined the chat.`,
+        isDeleted: false,
+      });
+    };
+
+    sendRubbyJoin();
+  }, [roomId, username]);
+
+  // 4️⃣ Rubby leave only on real close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (roomId && username) {
+        navigator.sendBeacon(
+          `${pb.baseUrl}/api/collections/messages/records`,
+          JSON.stringify({
+            roomId,
+            username: 'Rubby',
+            message: `👋 @${username} has left the chat.`,
+            isDeleted: false,
+          })
+        );
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [roomId, username]);
 
   const handleSend = async () => {
     if (newMessage.trim() === '' || !username || !roomId) return;
@@ -114,16 +165,13 @@ const RoomPage: React.FC = () => {
         />
       )}
 
-      {/* Fixed Header */}
+      {/* Header */}
       <div className="sticky top-0 z-10">
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
-      {/* Scrollable Chat Messages */}
-      <div
-        className="flex-1 overflow-y-auto px-4 py-2"
-        ref={scrollRef}
-      >
+      {/* Chat Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth" ref={scrollRef}>
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -142,8 +190,8 @@ const RoomPage: React.FC = () => {
         )}
       </div>
 
-      {/* Fixed Input */}
-      <div className="sticky bottom-0 bg-black z-10">
+      {/* Input */}
+      <div className="sticky bottom-0 z-10 bg-black">
         <MessageInput
           message={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
