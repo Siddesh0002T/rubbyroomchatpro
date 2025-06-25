@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
+import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { db } from '../utils/firebase';
 import { getUsername } from '../utils/helper';
 import SetUsernameModal from '../components/SetUsernameModal';
 import ChatHeader from '../components/ChatHeader';
 import MessageInput from '../components/MessageInput';
 import MessageBubble from '../components/MessageBubble';
-import pb from '../utils/pocketbase';
 
 interface Message {
   id: string;
@@ -22,133 +23,68 @@ const RoomPage: React.FC = () => {
   const [username, setUsernameState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const hasSentJoinRef = useRef(false);
-  const hasScrolledRef = useRef(false);
 
-  // 1️⃣ Username check
+  // 1️⃣ Get username
   useEffect(() => {
     const storedUsername = getUsername();
-    if (!storedUsername) {
-      setShowModal(true);
-    } else {
-      setUsernameState(storedUsername);
-    }
+    if (!storedUsername) setShowModal(true);
+    else setUsernameState(storedUsername);
   }, []);
 
-  // 2️⃣ Fetch and subscribe to messages
+  // 2️⃣ Fetch + Subscribe messages
   useEffect(() => {
     if (!roomId) return;
 
-    let unsubscribe: (() => void) | undefined;
+    const q = query(
+      collection(db, 'rooms', roomId, 'messages'),
+      orderBy('created', 'asc')
+    );
 
-    const fetchMessages = async () => {
-      try {
-        const msgs = await pb.collection('messages').getFullList<Message>({
-          filter: `roomId="${roomId}" && isDeleted=false`,
-          sort: '+created',
-        });
-        setMessages(msgs);
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as any),
+        created: doc.data().created?.toDate()?.toISOString() || '',
+      }));
+      setMessages(msgs);
 
-        // Scroll to bottom initially
-        setTimeout(() => {
-          if (scrollRef.current && !hasScrolledRef.current) {
-            scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-            hasScrolledRef.current = true;
-          }
-        }, 100);
-      } catch (err) {
-        console.error('Error fetching messages:', err);
-      }
-    };
-
-    const subscribeToMessages = async () => {
-      unsubscribe = await pb.collection('messages').subscribe('*', (e) => {
-        if (
-          e.action === 'create' &&
-          e.record.roomId === roomId &&
-          !messages.find((m) => m.id === e.record.id)
-        ) {
-          const newMsg: Message = {
-            id: e.record.id,
-            username: e.record.username,
-            message: e.record.message,
-            created: e.record.created,
-          };
-          setMessages((prev) => [...prev, newMsg]);
-
-          // Scroll to bottom if near bottom
-          const el = scrollRef.current;
-          if (el && el.scrollHeight - el.scrollTop - el.clientHeight < 100) {
-            setTimeout(() => {
-              el.scrollTop = el.scrollHeight;
-            }, 100);
-          }
+      setTimeout(() => {
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
-      });
-    };
+      }, 100);
+    });
 
-    fetchMessages();
-    subscribeToMessages();
-
-    return () => {
-      pb.collection('messages').unsubscribe('*');
-      unsubscribe?.();
-    };
+    return () => unsubscribe();
   }, [roomId]);
 
-  // 3️⃣ Rubby welcome once per session
+  // 3️⃣ Rubby joins only once
   useEffect(() => {
-    const sendRubbyJoin = async () => {
+    const sendJoin = async () => {
       if (!roomId || !username || hasSentJoinRef.current) return;
       hasSentJoinRef.current = true;
 
-      await pb.collection('messages').create({
-        roomId,
+      await addDoc(collection(db, 'rooms', roomId, 'messages'), {
         username: 'Rubby',
         message: `👋 @${username} just joined the chat.`,
-        isDeleted: false,
+        created: serverTimestamp(),
       });
     };
 
-    sendRubbyJoin();
+    sendJoin();
   }, [roomId, username]);
 
-  // 4️⃣ Rubby leave only on real close
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (roomId && username) {
-        navigator.sendBeacon(
-          `${pb.baseUrl}/api/collections/messages/records`,
-          JSON.stringify({
-            roomId,
-            username: 'Rubby',
-            message: `👋 @${username} has left the chat.`,
-            isDeleted: false,
-          })
-        );
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [roomId, username]);
-
+  // 4️⃣ Send message
   const handleSend = async () => {
-    if (newMessage.trim() === '' || !username || !roomId) return;
+    if (!newMessage.trim() || !username || !roomId) return;
 
-    try {
-      await pb.collection('messages').create({
-        roomId,
-        username,
-        message: newMessage,
-        isDeleted: false,
-      });
+    await addDoc(collection(db, 'rooms', roomId, 'messages'), {
+      username,
+      message: newMessage,
+      created: serverTimestamp(),
+    });
 
-      setNewMessage('');
-    } catch (err) {
-      console.error('Error sending message:', err);
-    }
+    setNewMessage('');
   };
 
   return (
@@ -170,7 +106,7 @@ const RoomPage: React.FC = () => {
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
-      {/* Chat Messages */}
+      {/* Chat Area */}
       <div className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth" ref={scrollRef}>
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
