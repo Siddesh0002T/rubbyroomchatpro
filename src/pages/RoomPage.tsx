@@ -20,8 +20,7 @@ const RoomPage: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [username, setUsernameState] = useState<string | null>(null);
-
-  const messagesRef = useRef<Message[]>([]);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const storedUsername = getUsername();
@@ -44,7 +43,6 @@ const RoomPage: React.FC = () => {
           sort: '+created',
         });
         setMessages(msgs);
-        messagesRef.current = msgs;
       } catch (err) {
         console.error('Error fetching messages:', err);
       }
@@ -55,7 +53,7 @@ const RoomPage: React.FC = () => {
         if (
           e.action === 'create' &&
           e.record.roomId === roomId &&
-          !messagesRef.current.find((m) => m.id === e.record.id)
+          !messages.find((m) => m.id === e.record.id)
         ) {
           const newMsg: Message = {
             id: e.record.id,
@@ -64,8 +62,7 @@ const RoomPage: React.FC = () => {
             created: e.record.created,
           };
 
-          messagesRef.current = [...messagesRef.current, newMsg];
-          setMessages(messagesRef.current);
+          setMessages((prev) => [...prev, newMsg]);
         }
       });
     };
@@ -78,6 +75,13 @@ const RoomPage: React.FC = () => {
       unsubscribe?.();
     };
   }, [roomId]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleSend = async () => {
     if (newMessage.trim() === '' || !username || !roomId) return;
@@ -97,7 +101,7 @@ const RoomPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex flex-col text-white">
+    <div className="h-screen bg-black flex flex-col text-white overflow-hidden">
       {showModal && (
         <SetUsernameModal
           onClose={() => {
@@ -110,9 +114,16 @@ const RoomPage: React.FC = () => {
         />
       )}
 
-      <ChatHeader roomId={roomId || 'Room'} />
+      {/* Fixed Header */}
+      <div className="sticky top-0 z-10">
+        <ChatHeader roomId={roomId || 'Room'} />
+      </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-2">
+      {/* Scrollable Chat Messages */}
+      <div
+        className="flex-1 overflow-y-auto px-4 py-2"
+        ref={scrollRef}
+      >
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -121,18 +132,24 @@ const RoomPage: React.FC = () => {
               key={msg.id}
               username={msg.username}
               message={msg.message}
-              time={new Date(msg.created).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              time={new Date(msg.created).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
               isSelf={msg.username === username}
             />
           ))
         )}
       </div>
 
-      <MessageInput
-        message={newMessage}
-        onChange={(e) => setNewMessage(e.target.value)}
-        onSend={handleSend}
-      />
+      {/* Fixed Input */}
+      <div className="sticky bottom-0 bg-black z-10">
+        <MessageInput
+          message={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onSend={handleSend}
+        />
+      </div>
     </div>
   );
 };

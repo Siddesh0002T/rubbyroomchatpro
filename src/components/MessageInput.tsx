@@ -16,6 +16,7 @@ const MessageInput = ({
         value={message}
         onChange={onChange}
         placeholder="Type a message..."
+        id="messageInput" // 🔁 Needed for scroll trigger
         className="flex-1 bg-gray-800 text-white text-sm px-4 py-2 rounded-full focus:outline-none"
       />
       <button
