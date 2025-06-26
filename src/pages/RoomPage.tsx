@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { getUsername } from '../utils/helper';
+import { encryptText, decryptText } from '../utils/crypto'; // ✅ Added
 import SetUsernameModal from '../components/SetUsernameModal';
 import ChatHeader from '../components/ChatHeader';
 import MessageInput from '../components/MessageInput';
@@ -48,11 +49,17 @@ const RoomPage: React.FC = () => {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...(doc.data() as any),
-        created: doc.data().created?.toDate()?.toISOString() || '',
-      }));
+      const msgs = snapshot.docs.map((doc) => {
+        const data = doc.data();
+        const decrypted = decryptText(data.message);
+        return {
+          id: doc.id,
+          username: data.username,
+          message: decrypted || '[error]',
+          created: data.created?.toDate()?.toISOString() || '',
+        };
+      });
+
       setMessages(msgs);
 
       setTimeout(() => {
@@ -72,9 +79,11 @@ const RoomPage: React.FC = () => {
       if (!roomId || !username || hasSentJoinRef.current) return;
       hasSentJoinRef.current = true;
 
+      const joinMessage = encryptText(`👋 @${username} just joined the chat.`);
+
       await addDoc(collection(db, 'rooms', roomId, 'messages'), {
         username: 'Rubby',
-        message: `👋 @${username} just joined the chat.`,
+        message: joinMessage,
         created: serverTimestamp(),
       });
     };
@@ -82,7 +91,7 @@ const RoomPage: React.FC = () => {
     sendJoin();
   }, [roomId, username]);
 
-  // 4️⃣ Scroll on mobile keyboard open
+  // 4️⃣ Scroll on keyboard open
   useEffect(() => {
     const handleResize = () => {
       setTimeout(() => {
@@ -101,9 +110,11 @@ const RoomPage: React.FC = () => {
   const handleSend = async () => {
     if (!newMessage.trim() || !username || !roomId) return;
 
+    const encrypted = encryptText(newMessage);
+
     await addDoc(collection(db, 'rooms', roomId, 'messages'), {
       username,
-      message: newMessage,
+      message: encrypted,
       created: serverTimestamp(),
     });
 
@@ -112,7 +123,6 @@ const RoomPage: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
-      {/* Username modal */}
       {showModal && (
         <SetUsernameModal
           onClose={() => {
@@ -125,12 +135,10 @@ const RoomPage: React.FC = () => {
         />
       )}
 
-      {/* Header */}
       <div className="flex-none sticky top-0 z-20 bg-black">
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
-      {/* Messages */}
       <div
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth transition-all duration-300 ease-in-out"
@@ -157,7 +165,6 @@ const RoomPage: React.FC = () => {
         )}
       </div>
 
-      {/* Input */}
       <div className="flex-none sticky bottom-0 z-20 bg-black pb-[env(safe-area-inset-bottom)]">
         <MessageInput
           message={newMessage}
