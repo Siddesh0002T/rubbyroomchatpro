@@ -31,7 +31,20 @@ const RoomPage: React.FC = () => {
   const [username, setUsernameState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const hasSentJoinRef = useRef(false);
+useEffect(() => {
+  const handleFocus = () => {
+    setTimeout(() => {
+      scrollRef.current?.scrollTo({
+        top: scrollRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }, 300);
+  };
 
+  window.addEventListener('focusin', handleFocus); // triggers when keyboard opens
+
+  return () => window.removeEventListener('focusin', handleFocus);
+}, []);
   // 1️⃣ Get username
   useEffect(() => {
     const storedUsername = getUsername();
@@ -140,13 +153,15 @@ const RoomPage: React.FC = () => {
       </div>
 
       <div
-        ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth transition-all duration-300 ease-in-out"
-        style={{
-          WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth',
-        }}
-      >
+  ref={scrollRef}
+  className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth transition-all duration-300 ease-in-out"
+  style={{
+    WebkitOverflowScrolling: 'touch',
+    scrollBehavior: 'smooth',
+    overscrollBehavior: 'contain', // ⬅️ prevent overscroll bounce on mobile
+    paddingBottom: '100px',        // ⬅️ space for keyboard overlap
+  }}
+>
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -165,13 +180,21 @@ const RoomPage: React.FC = () => {
         )}
       </div>
 
-      <div className="flex-none sticky bottom-0 z-20 bg-black pb-[env(safe-area-inset-bottom)]">
-        <MessageInput
-          message={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onSend={handleSend}
-        />
-      </div>
+<div
+  className="bg-black px-4 pt-2 pb-[env(safe-area-inset-bottom)]"
+  style={{
+    position: 'sticky',
+    bottom: 0,
+    zIndex: 20,
+    backdropFilter: 'blur(10px)',
+  }}
+>
+  <MessageInput
+    message={newMessage}
+    onChange={(e) => setNewMessage(e.target.value)}
+    onSend={handleSend}
+  />
+</div>
     </div>
   );
 };
