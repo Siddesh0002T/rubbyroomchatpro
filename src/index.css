@@ -50,3 +50,12 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: black;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}

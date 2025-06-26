@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, addDoc, query, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { getUsername } from '../utils/helper';
 import SetUsernameModal from '../components/SetUsernameModal';
@@ -31,7 +38,7 @@ const RoomPage: React.FC = () => {
     else setUsernameState(storedUsername);
   }, []);
 
-  // 2️⃣ Fetch + Subscribe messages
+  // 2️⃣ Fetch + Subscribe to messages
   useEffect(() => {
     if (!roomId) return;
 
@@ -48,6 +55,7 @@ const RoomPage: React.FC = () => {
       }));
       setMessages(msgs);
 
+      // Auto-scroll to bottom
       setTimeout(() => {
         if (scrollRef.current) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -74,7 +82,21 @@ const RoomPage: React.FC = () => {
     sendJoin();
   }, [roomId, username]);
 
-  // 4️⃣ Send message
+  // 4️⃣ Auto-scroll on resize (keyboard open/close)
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 300);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 5️⃣ Send message
   const handleSend = async () => {
     if (!newMessage.trim() || !username || !roomId) return;
 
@@ -88,7 +110,7 @@ const RoomPage: React.FC = () => {
   };
 
   return (
-    <div className="h-screen bg-black flex flex-col text-white overflow-hidden">
+    <div className="flex flex-col text-white bg-black min-h-[100dvh]">
       {showModal && (
         <SetUsernameModal
           onClose={() => {
@@ -102,12 +124,15 @@ const RoomPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="sticky top-0 z-10">
+      <div className="sticky top-0 z-10 bg-black">
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
       {/* Chat Area */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth" ref={scrollRef}>
+      <div
+        className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth"
+        ref={scrollRef}
+      >
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -126,8 +151,8 @@ const RoomPage: React.FC = () => {
         )}
       </div>
 
-      {/* Input */}
-      <div className="sticky bottom-0 z-10 bg-black">
+      {/* Input Box */}
+      <div className="sticky bottom-0 z-10 bg-black pb-[env(safe-area-inset-bottom)]">
         <MessageInput
           message={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
