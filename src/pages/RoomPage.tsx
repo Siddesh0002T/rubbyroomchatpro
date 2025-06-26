@@ -31,14 +31,14 @@ const RoomPage: React.FC = () => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const hasSentJoinRef = useRef(false);
 
-  // 1️⃣ Username check
+  // 1️⃣ Get username
   useEffect(() => {
     const storedUsername = getUsername();
     if (!storedUsername) setShowModal(true);
     else setUsernameState(storedUsername);
   }, []);
 
-  // 2️⃣ Fetch and subscribe to messages
+  // 2️⃣ Fetch + Subscribe messages
   useEffect(() => {
     if (!roomId) return;
 
@@ -56,14 +56,16 @@ const RoomPage: React.FC = () => {
       setMessages(msgs);
 
       setTimeout(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        if (scrollRef.current) {
+          scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        }
       }, 100);
     });
 
     return () => unsubscribe();
   }, [roomId]);
 
-  // 3️⃣ Rubby welcome message once
+  // 3️⃣ Rubby joins only once
   useEffect(() => {
     const sendJoin = async () => {
       if (!roomId || !username || hasSentJoinRef.current) return;
@@ -79,7 +81,22 @@ const RoomPage: React.FC = () => {
     sendJoin();
   }, [roomId, username]);
 
-  // 4️⃣ Send message
+  // 4️⃣ Scroll down when keyboard opens (mobile)
+  useEffect(() => {
+    const handleResize = () => {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 5️⃣ Send message
   const handleSend = async () => {
     if (!newMessage.trim() || !username || !roomId) return;
 
@@ -93,8 +110,8 @@ const RoomPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-black flex flex-col text-white">
-      {/* Modal for username */}
+    <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
+      {/* Username modal */}
       {showModal && (
         <SetUsernameModal
           onClose={() => {
@@ -107,13 +124,17 @@ const RoomPage: React.FC = () => {
         />
       )}
 
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-black">
+      {/* Fixed Header */}
+      <div className="flex-none sticky top-0 z-20 bg-black">
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
-      {/* Chat messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth">
+      {/* Scrollable Chat Area */}
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -130,12 +151,10 @@ const RoomPage: React.FC = () => {
             />
           ))
         )}
-        {/* Dummy element to scroll to */}
-        <div ref={scrollRef} />
       </div>
 
-      {/* Input */}
-      <div className="sticky bottom-0 z-10 bg-black">
+      {/* Fixed Input Box */}
+      <div className="flex-none sticky bottom-0 z-20 bg-black pb-[env(safe-area-inset-bottom)]">
         <MessageInput
           message={newMessage}
           onChange={(e) => setNewMessage(e.target.value)}
