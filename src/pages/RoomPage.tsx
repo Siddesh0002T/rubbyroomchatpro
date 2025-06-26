@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../utils/firebase';
 import { getUsername } from '../utils/helper';
-import { encryptText, decryptText } from '../utils/crypto'; // ✅ Added
+import { encryptText, decryptText } from '../utils/crypto';
 import SetUsernameModal from '../components/SetUsernameModal';
 import ChatHeader from '../components/ChatHeader';
 import MessageInput from '../components/MessageInput';
@@ -31,20 +31,23 @@ const RoomPage: React.FC = () => {
   const [username, setUsernameState] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const hasSentJoinRef = useRef(false);
-useEffect(() => {
-  const handleFocus = () => {
-    setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        top: scrollRef.current.scrollHeight,
-        behavior: 'smooth',
-      });
-    }, 300);
-  };
 
-  window.addEventListener('focusin', handleFocus); // triggers when keyboard opens
+  // 🟡 Fix mobile input hide issue (keyboard opens)
+  useEffect(() => {
+    const handleFocus = () => {
+      setTimeout(() => {
+        scrollRef.current?.scrollTo({
+          top: scrollRef.current.scrollHeight,
+          behavior: 'smooth',
+        });
+      }, 300);
+    };
 
-  return () => window.removeEventListener('focusin', handleFocus);
-}, []);
+    window.addEventListener('focusin', handleFocus);
+
+    return () => window.removeEventListener('focusin', handleFocus);
+  }, []);
+
   // 1️⃣ Get username
   useEffect(() => {
     const storedUsername = getUsername();
@@ -52,7 +55,7 @@ useEffect(() => {
     else setUsernameState(storedUsername);
   }, []);
 
-  // 2️⃣ Fetch & Subscribe to messages
+  // 2️⃣ Fetch messages
   useEffect(() => {
     if (!roomId) return;
 
@@ -104,7 +107,7 @@ useEffect(() => {
     sendJoin();
   }, [roomId, username]);
 
-  // 4️⃣ Scroll on keyboard open
+  // 4️⃣ Scroll on resize (keyboard open/close)
   useEffect(() => {
     const handleResize = () => {
       setTimeout(() => {
@@ -136,6 +139,7 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col h-screen bg-black text-white overflow-hidden">
+      {/* Modal to set username */}
       {showModal && (
         <SetUsernameModal
           onClose={() => {
@@ -148,20 +152,22 @@ useEffect(() => {
         />
       )}
 
+      {/* Chat header */}
       <div className="flex-none sticky top-0 z-20 bg-black">
         <ChatHeader roomId={roomId || 'Room'} />
       </div>
 
+      {/* Messages list */}
       <div
-  ref={scrollRef}
-  className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth transition-all duration-300 ease-in-out"
-  style={{
-    WebkitOverflowScrolling: 'touch',
-    scrollBehavior: 'smooth',
-    overscrollBehavior: 'contain', // ⬅️ prevent overscroll bounce on mobile
-    paddingBottom: '100px',        // ⬅️ space for keyboard overlap
-  }}
->
+        ref={scrollRef}
+        className="flex-1 overflow-y-auto px-4 py-2 scroll-smooth transition-all duration-300 ease-in-out"
+        style={{
+          WebkitOverflowScrolling: 'touch',
+          scrollBehavior: 'smooth',
+          overscrollBehavior: 'contain',
+          paddingBottom: '100px', // Space for keyboard
+        }}
+      >
         {messages.length === 0 ? (
           <p className="text-gray-500 text-center mt-10">No messages yet...</p>
         ) : (
@@ -180,21 +186,22 @@ useEffect(() => {
         )}
       </div>
 
-<div
-  className="bg-black px-4 pt-2 pb-[env(safe-area-inset-bottom)]"
-  style={{
-    position: 'sticky',
-    bottom: 0,
-    zIndex: 20,
-    backdropFilter: 'blur(10px)',
-  }}
->
-  <MessageInput
-    message={newMessage}
-    onChange={(e) => setNewMessage(e.target.value)}
-    onSend={handleSend}
-  />
-</div>
+      {/* Message input */}
+      <div
+        className="bg-black px-4 pt-2 pb-[env(safe-area-inset-bottom)]"
+        style={{
+          position: 'sticky',
+          bottom: 0,
+          zIndex: 20,
+          backdropFilter: 'blur(10px)',
+        }}
+      >
+        <MessageInput
+          message={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onSend={handleSend}
+        />
+      </div>
     </div>
   );
 };
