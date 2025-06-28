@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.rubbysoft.rubbyroomchatpro',
-  appName: 'Rubby Room Chat Plus',
+  appId: 'com.example.app',
+  appName: 'rubbyroomchatpro',
   webDir: 'dist'
 };
 

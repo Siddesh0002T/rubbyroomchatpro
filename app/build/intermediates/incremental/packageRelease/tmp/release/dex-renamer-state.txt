@@ -1,0 +1,4 @@
+#Sat Jun 28 13:12:50 IST 2025
+base.0=D\:\\My Space\\rubbyroomchatpro\\app\\build\\intermediates\\dex\\release\\minifyReleaseWithR8\\classes.dex
+renamed.0=classes.dex
+path.0=classes.dex
